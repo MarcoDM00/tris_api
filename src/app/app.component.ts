@@ -1,13 +1,15 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import { map } from 'rxjs/operators';
+import { io } from 'socket.io-client';
+import { BehaviorSubject } from 'rxjs';
 
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   caselle:{src:string, nascondi:boolean}[] = [];
   linkImgs:string[] = ["", ""];
   turno:number = 1;
@@ -15,6 +17,37 @@ export class AppComponent {
   win:boolean = false;
   records:Record[] = [];
   error:string = "";
+  socket = io('http://localhost:3002');
+  public message$: BehaviorSubject<string> = new BehaviorSubject('');
+  listaDati: number[] = []
+
+  ngOnInit(): void {
+
+    console.log(this.listaDati)
+    this.socket.on('mosse', (arg) => {
+      this.message$.next(arg);
+    });
+    this.message$.asObservable().subscribe((message: string) => {
+      if (message.toString() != ""){
+        this.listaDati.push(parseInt(message));
+
+        this.listaDati.forEach(c => {
+          if(c >= 9){
+            this.caselle[c-9].src = this.linkImgs[1]
+            this.caselle[c-9].nascondi = false
+          }else{
+            this.caselle[c].src = this.linkImgs[0]
+            this.caselle[c].nascondi = false
+          }
+        })
+
+      }
+
+      console.log(this.listaDati)
+      
+    })
+
+  }
 
   constructor(private server: HttpClient) {
     for (let i = 0; i < 9; i++) {
@@ -44,6 +77,11 @@ export class AppComponent {
     this.mosse++;
     this.controllo();
     if (!this.win) this.turno = this.turno == 0 ? 1 : 0;
+    if (this.turno == 0){
+      id += 9
+    }
+    this.socket.emit('mosse',id);
+    //this.getMessage()
   }
 
   controllo() {
@@ -78,6 +116,20 @@ export class AppComponent {
     }
     this.turno = Math.floor(Math.random() * 2);
     this.mosse = 0;
+    this.listaDati = [] 
+    this.linkImgs = ['', '']
+    this.getLink().subscribe(
+      res => {
+        this.linkImgs[0] = res['message'];
+        do {
+          this.getLink().subscribe(
+            res => this.linkImgs[1] = res['message'],
+            err => this.error = err
+          );
+        } while (this.linkImgs[0] == this.linkImgs[1]);
+      },
+      err => this.error = err
+    );
   }
 
   getLink() {
@@ -96,6 +148,11 @@ export class AppComponent {
       }
     );
   }
+
+  
+
+
+
 }
 
 export class Record {
