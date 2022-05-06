@@ -17,12 +17,14 @@ export class AppComponent implements OnInit {
   win:boolean = false;
   records:Record[] = [];
   error:string = "";
-  socket = io('http://192.168.45.150:3002');
+  socket = io('http://93.48.224.122:3002');
   public message$: BehaviorSubject<string> = new BehaviorSubject('');
   public message2$: BehaviorSubject<string> = new BehaviorSubject('');
   listaDati: number[] = []
+  primo = true
 
   ngOnInit(): void {
+
     this.getLink().subscribe(
       res => {
         this.linkImgs[0] = res['message'];
@@ -31,7 +33,7 @@ export class AppComponent implements OnInit {
             res => {
               this.linkImgs[1] = res['message']
               if (this.linkImgs[0] != this.linkImgs[1]){
-                this.socket.emit('login', this.linkImgs)
+                this.socket.emit('login', this.linkImgs.toString())
               }
           }
             ,
@@ -52,6 +54,11 @@ export class AppComponent implements OnInit {
     });
     this.message2$.asObservable().subscribe((message) => {
       if(message != '0'){
+
+        if(this.linkImgs.length==0){
+          this.primo = false
+        }
+
         this.linkImgs = message.split(',')
       }
     })
@@ -86,24 +93,32 @@ export class AppComponent implements OnInit {
     for (let i = 0; i < 9; i++) {
       this.caselle.push({src:"", nascondi:true});
     }
-    this.turno = Math.floor(Math.random() * 2);
+    this.turno = 1
     
-    this.getRecords();
+    //this.getRecords();
   }
 
   click(id:number) {
-    if (this.win) return;
-    if (this.caselle[id].src != "") return;
-    this.caselle[id].src = this.linkImgs[this.turno];
-    this.caselle[id].nascondi = false;
-    this.mosse++;
-    this.controllo();
-    if (!this.win) this.turno = this.turno == 0 ? 1 : 0;
-    if (this.turno == 0){
-      id += 9
-    }
-    this.socket.emit('mosse',id);
+    console.log(this.primo)
+    if(this.primo){
+      if (this.win) return;
+      if (this.caselle[id].src != "") return;
+      this.caselle[id].src = this.linkImgs[this.turno];
+      this.caselle[id].nascondi = false;
+      this.mosse++;
+      this.controllo();
+      if (!this.win) this.turno = this.turno == 0 ? 1 : 0;
+      if(this.primo){
+        this.primo = false
+      }else{
+        this.primo = true
+      }
+      if (this.turno == 0){
+        id += 9
+      }
+      this.socket.emit('mosse',id);
     //this.getMessage()
+    }
   }
 
   controllo() {
@@ -127,8 +142,9 @@ export class AppComponent implements OnInit {
     setTimeout(() => {
       this.win = true;
       window.scrollTo(0, 0);
+      this.resetDati()
     }, 1000);
-    this.resetDati()
+    
   }
 
   resetDati(){
@@ -136,27 +152,9 @@ export class AppComponent implements OnInit {
       this.caselle[i].src = "";
       this.caselle[i].nascondi = true;
     }
-    this.turno = Math.floor(Math.random() * 2);
+    this.turno = 1
     this.mosse = 0;
     this.listaDati = [] 
-    this.linkImgs = ['', '']
-    this.getLink().subscribe(
-      res => {
-        this.linkImgs[0] = res['message'];
-        do {
-          this.getLink().subscribe(
-            res => this.linkImgs[1] = res['message'],
-            err => this.error = err
-          );
-        } while (this.linkImgs[0] == this.linkImgs[1]);
-      },
-      err => this.error = err
-    );
-  }
-
-  reset() {
-    this.win = false;
-    this.resetDati()
   }
 
   getLink() {
@@ -175,11 +173,6 @@ export class AppComponent implements OnInit {
       }
     );
   }
-
-  
-
-
-
 }
 
 export class Record {
